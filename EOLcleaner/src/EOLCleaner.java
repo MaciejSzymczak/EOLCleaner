@@ -5,7 +5,7 @@ import java.io.IOException;
 import java.io.FileWriter;
 
 /**
- * This program deletes EOLs from CSV file / deletes nested commas
+ * This program deletes EOLs from any CSV file / deletes nested commas
  * 
  * @author Maciej Szymczak
  * @version 2016.11.10
