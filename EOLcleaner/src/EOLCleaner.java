@@ -2,6 +2,8 @@ import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.StringTokenizer;
 import java.io.FileWriter;
 
 /**
@@ -38,7 +40,7 @@ public class EOLCleaner {
 	}		
 	
 	private static FileReader fr;	
-	private static void deleteEOLsfromCSV (String sourceFile, String destFile, String replaceNestedCommasFlag) throws IOException {
+	private static void deleteEOLsfromCSV (String sourceFile, String destFile, String replaceNestedCommasFlag, String truncateMax255chars) throws IOException {
 	    
 		try {
 			FileWriter writer = new FileWriter(destFile);
@@ -50,6 +52,7 @@ public class EOLCleaner {
 			Integer recordNo=0;
 	        
 			Boolean deleteNested =replaceNestedCommasFlag.compareTo("Y")==0;
+			Boolean trucate255   =truncateMax255chars.equalsIgnoreCase("Y");
 			
 			while( (phisicalLine = br.readLine()) != null) {
 				recordLine = phisicalLine;				
@@ -65,6 +68,24 @@ public class EOLCleaner {
 				recordNo++;
 				if (deleteNested) {
 					recordLine = replaceNestedCommas(recordLine);
+				}
+				//this function is exerimental, do not use
+				if (trucate255) {
+					ArrayList<String> tokens = new ArrayList<String>();
+					StringTokenizer st = new StringTokenizer(recordLine, ",");
+					while (st.hasMoreElements()) {
+						String currStr = (String) st.nextElement();
+						currStr = currStr.replace("\"", "");
+						currStr = currStr.substring(0, (currStr.length()<254?currStr.length():254) );							
+						tokens.add(currStr);
+					}
+					recordLine = "";
+					Integer i=0;
+					for (String s : tokens)
+					{
+						recordLine += (i==0?s:"," + s);
+						i++;
+					}
 				}
 			    writer.append(recordLine);			 	 
 			    writer.append('\n');			 	 
@@ -86,7 +107,7 @@ public class EOLCleaner {
   		  System.out.println(Messages.getString("EOLCleaner.5")); //$NON-NLS-1$
 		}
 		else {
-		  deleteEOLsfromCSV(args[0],args[1],args[2]);		
+		  deleteEOLsfromCSV(args[0], args[1], args[2], "N");		
 		  System.out.println(Messages.getString("EOLCleaner.6")); //$NON-NLS-1$
 		}
 	}		
