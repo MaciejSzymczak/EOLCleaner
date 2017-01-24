@@ -69,7 +69,7 @@ public class EOLCleaner {
 				if (deleteNested) {
 					recordLine = replaceNestedCommas(recordLine);
 				}
-				//this function is exerimental, do not use
+				//this function is experimental, do not use it
 				if (trucate255) {
 					ArrayList<String> tokens = new ArrayList<String>();
 					StringTokenizer st = new StringTokenizer(recordLine, ",");
