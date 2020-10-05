@@ -76,6 +76,9 @@ public class EOLCleaner {
 					recordLine = replaceNestedCommas(recordLine,' ');
 				}
 				
+				if (recordNo % 100 == 0)
+					System.out.println(recordNo);
+				
 				//Generate DML
 				if (recordNo==1) {
 					FileWriter writerDML = new FileWriter(sourceFile+".dml");
