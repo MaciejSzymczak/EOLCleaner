@@ -76,7 +76,7 @@ public class EOLCleaner {
 					recordLine = replaceNestedCommas(recordLine,' ');
 				}
 				
-				if (recordNo % 100 == 0)
+				if (recordNo % 1000 == 0)
 					System.out.println(recordNo);
 				
 				//Generate DML
@@ -122,9 +122,13 @@ public class EOLCleaner {
 						if (currStr.length()>trucateNChars)
 							currStr = currStr.substring(0, trucateNChars)+"...";							
 						
+						currStr = currStr.replace("'", " ");
+						currStr = currStr.replace("\"", " ");
+
 						if (isQuotedFlag) {
 							currStr = quote(currStr);
 						}
+						
 						tokens.add(currStr);
 					}
 					recordLine = "";
