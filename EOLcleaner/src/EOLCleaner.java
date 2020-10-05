@@ -10,7 +10,7 @@ import java.io.FileWriter;
  * This program deletes EOLs from any CSV file / deletes nested commas
  * 
  * @author Maciej Szymczak
- * @version 2016.11.10
+ * @version 2020.10.04
  */
 
 public class EOLCleaner {
@@ -21,7 +21,7 @@ public class EOLCleaner {
         return buf.toString();
     }		
 	
-	public static String replaceNestedCommas(String a) {
+	public static String replaceNestedCommas(String a, char replaceWith) {
 		int quotaCnt = 0;
 		
 		int x=0;
@@ -30,7 +30,7 @@ public class EOLCleaner {
 				quotaCnt++;
 			}
 			if (quotaCnt%2==1 && a.charAt(x)==',') {
-				a = replaceCharAt(a,x,' ');
+				a = replaceCharAt(a,x,replaceWith);
 			}
 			//System.out.println( a.charAt(x) + " " + quotaCnt%2);
 			x++;
@@ -40,7 +40,7 @@ public class EOLCleaner {
 	}		
 	
 	private static FileReader fr;	
-	private static void deleteEOLsfromCSV (String sourceFile, String destFile, String replaceNestedCommasFlag, String truncateMax255chars) throws IOException {
+	private static void deleteEOLsfromCSV (String sourceFile, String destFile, String replaceNestedCommasFlag, String trucateCharsX, String tableName) throws IOException {
 	    
 		try {
 			FileWriter writer = new FileWriter(destFile);
@@ -52,14 +52,20 @@ public class EOLCleaner {
 			Integer recordNo=0;
 	        
 			Boolean deleteNested =replaceNestedCommasFlag.compareTo("Y")==0;
-			Boolean trucate255   =truncateMax255chars.equalsIgnoreCase("Y");
+			Boolean trucateChars = (trucateCharsX !=null) && (trucateCharsX.length()>0);
+			int trucateNChars=0;
+			if (trucateChars)
+			    trucateNChars = Integer.parseInt(trucateCharsX)-3;
 			
+			int fuse = 1;
 			while( (phisicalLine = br.readLine()) != null) {
 				recordLine = phisicalLine;				
-				while ( !((recordLine.length() - recordLine.replace("\"","").length()) % 2 == 0) ) { 
+				while ( !((recordLine.length() - recordLine.replace("\"","").length()) % 2 == 0) || fuse==1000  ) { 
 					phisicalLine = br.readLine();
-					recordLine = recordLine +" "+ phisicalLine;						 
+					recordLine = recordLine +" "+ phisicalLine;
+					fuse++;
 				}
+				if (fuse==1000) System.out.println("*** Error: The file structure is invalid");
 
 			    if (recordLine.isEmpty()) {
 				    System.out.println(Messages.getString("EOLCleaner.3")); 
@@ -67,16 +73,21 @@ public class EOLCleaner {
 			    }				
 				recordNo++;
 				if (deleteNested) {
-					recordLine = replaceNestedCommas(recordLine);
+					recordLine = replaceNestedCommas(recordLine,' ');
 				}
-				//this function is experimental, do not use it
-				if (trucate255) {
+				
+				//Generate DML
+				if (recordNo==1) {
+					FileWriter writerDML = new FileWriter(sourceFile+".dml");
+					writerDML.append("create table "+tableName+" (");			 	 			 	 
+
+					String separator = "";
 					ArrayList<String> tokens = new ArrayList<String>();
 					StringTokenizer st = new StringTokenizer(recordLine, ",");
 					while (st.hasMoreElements()) {
 						String currStr = (String) st.nextElement();
-						currStr = currStr.replace("\"", "");
-						currStr = currStr.substring(0, (currStr.length()<254?currStr.length():254) );							
+						writerDML.append(separator+currStr+" varchar2(4000)");
+						separator = ",";
 						tokens.add(currStr);
 					}
 					recordLine = "";
@@ -86,7 +97,43 @@ public class EOLCleaner {
 						recordLine += (i==0?s:"," + s);
 						i++;
 					}
+					
+					writerDML.append(");");			 	 			 	 
+				    writerDML.flush();
+				    writerDML.close();									
 				}
+				
+				
+				if (trucateChars) {
+					Boolean eliminateNestedCommas = (trucateChars && !deleteNested);
+					if (eliminateNestedCommas) recordLine = replaceNestedCommas(recordLine,'`');
+					ArrayList<String> tokens = new ArrayList<String>();
+					StringTokenizer st = new StringTokenizer(recordLine, ",");
+					while (st.hasMoreElements()) {
+						String currStr = (String) st.nextElement();
+						Boolean isQuotedFlag = isQuoted (currStr);
+						if (isQuotedFlag) {
+							currStr = unquote(currStr);
+						}
+						
+						if (currStr.length()>trucateNChars)
+							currStr = currStr.substring(0, trucateNChars)+"...";							
+						
+						if (isQuotedFlag) {
+							currStr = quote(currStr);
+						}
+						tokens.add(currStr);
+					}
+					recordLine = "";
+					Integer i=0;
+					for (String s : tokens)
+					{
+						recordLine += (i==0?s:"," + s);
+						i++;
+					}
+					if (eliminateNestedCommas) recordLine = recordLine.replace("`", ",");
+				}
+				
 			    writer.append(recordLine);			 	 
 			    writer.append('\n');			 	 
 												
@@ -94,6 +141,7 @@ public class EOLCleaner {
 		    writer.flush();
 		    writer.close();			
 			fr.close();
+			System.out.println("Lines processed: " + recordNo);
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		} catch (IOException e) {
@@ -101,13 +149,28 @@ public class EOLCleaner {
 		}	    
 	}	
 	
+	public static Boolean isQuoted(String s) {
+		return (s != null) && (s.length()>1) && (s.charAt(0)=='\"') && (s.charAt(s.length()-1)=='\"');
+	}
+	
+	public static String unquote(String s) {
+		int len = s.length();
+		return s.substring(1, len-1);
+	}
+	
+	public static String quote(String s) {
+		return "\"" + s + "\"";
+	}
+
+	
 	public static void main(String[] args) throws Exception {
+		
 		System.out.println(Messages.getString("EOLCleaner.4")); //$NON-NLS-1$
 		if (args.length==0) {
   		  System.out.println(Messages.getString("EOLCleaner.5")); //$NON-NLS-1$
 		}
 		else {
-		  deleteEOLsfromCSV(args[0], args[1], args[2], "N");		
+		  deleteEOLsfromCSV(args[0], args[1], args[2], args[3], args[4]);		
 		  System.out.println(Messages.getString("EOLCleaner.6")); //$NON-NLS-1$
 		}
 	}		
